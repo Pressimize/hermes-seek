@@ -2,13 +2,13 @@
 
 **Search smarter. Never stop seeking.**
 
+> Seek is part of a package with [Sift](https://github.com/Pressimize/hermes-sift), which does the same for `web_extract`. The two work best together: use both.
+
 Resilient multi-provider web search for Hermes Agent.
 
 A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that makes `web_search` fall back across up to nine search services: **Exa → Parallel → Brave → Nimble → Tavily → You.com → SearXNG → Degoog → Firecrawl**.
 
 Hermes uses exactly one search provider. If it fails, for example because the free quota is used up, the model gets an error, or Hermes' keyless rescue serves the call from anonymous free tiers. This plugin registers one provider, `seek`, that asks the next service when one fails, returns nothing, or has run out of quota. A service you have no key or address for is skipped, and you can pick and order the services yourself.
-
-It is the search counterpart of [Sift](https://github.com/Pressimize/hermes-sift), which does the same for `web_extract`.
 
 ## How it works
 
