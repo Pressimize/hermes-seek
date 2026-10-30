@@ -1,10 +1,12 @@
-# hermes-search-chain
+# Seek
+
+**Resilient web search for Hermes Agent.**
 
 A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that makes `web_search` fall back across up to nine search services: **Exa → Parallel → Brave → Nimble → Tavily → You.com → SearXNG → Degoog → Firecrawl**.
 
 Hermes uses exactly one search provider. If it fails, for example because the free quota is used up, the model gets an error, or Hermes' keyless rescue serves the call from anonymous free tiers. This plugin registers one provider, `search-chain`, that asks the next service when one fails, returns nothing, or has run out of quota. A service you have no key or address for is skipped, and you can pick and order the services yourself.
 
-It is the search counterpart of [hermes-extract-chain](https://github.com/Pressimize/hermes-extract-chain), which does the same for `web_extract`.
+It is the search counterpart of [Sift](https://github.com/Pressimize/hermes-sift), which does the same for `web_extract`.
 
 ## How it works
 
@@ -55,7 +57,7 @@ Method, tables, significance tests and the services that did not make the chain:
   | [Parallel](https://parallel.ai) | `PARALLEL_API_KEY` | The pricing page names 5,000 free requests per month. |
   | [Brave Search](https://brave.com/search/api/) | `BRAVE_SEARCH_API_KEY` | $5 of credit per month, about 1,000 searches; a payment card is required even for the free credit. Then $5 per 1,000. |
   | [Nimble](https://www.nimbleway.com) | `NIMBLE_API_KEY` | Depth `lite`: $1.10 per 1,000, billed only for successful requests. A trial of 5,000 pages exists; whether it covers search is unclear. |
-  | [Tavily](https://tavily.com) | `TAVILY_API_KEY` | 1,000 credits per month without a card, 1 credit per basic search. Same key and credits as Tavily in hermes-extract-chain. |
+  | [Tavily](https://tavily.com) | `TAVILY_API_KEY` | 1,000 credits per month without a card, 1 credit per basic search. Same key and credits as Tavily in Sift. |
   | [You.com](https://you.com) | `YDC_API_KEY` | $5 per 1,000 calls. Whether a start credit exists is unconfirmed. |
   | [SearXNG](https://docs.searxng.org) | `SEARXNG_URL` | Free, self-hosted. |
   | [Degoog](https://github.com/degoog-org/degoog) | `DEGOOG_URL` | Free, self-hosted. |
@@ -79,9 +81,9 @@ No extra Python packages: the plugin only uses `httpx`, which ships with Hermes.
 | Hermes Desktop (Windows), per profile | `%LOCALAPPDATA%\hermes\profiles\<profile>\plugins\search-chain\` |
 
 ```bash
-git clone https://github.com/Pressimize/hermes-search-chain.git   # for an update: git -C hermes-search-chain pull --ff-only
+git clone https://github.com/Pressimize/hermes-seek.git   # for an update: git -C hermes-seek pull --ff-only
 target="${HERMES_HOME:-$HOME/.hermes}/plugins/search-chain"       # or the directory of your row in the table above
-mkdir -p "$target" && cp -r hermes-search-chain/search_chain/. "$target/"
+mkdir -p "$target" && cp -r hermes-seek/search_chain/. "$target/"
 ```
 
 Then enable it in the profile's `config.yaml` (user plugins are opt-in) and select it:
@@ -111,14 +113,14 @@ PARALLEL_API_KEY=...
 #FIRECRAWL_API_KEY=...
 ```
 
-The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`). A key you already set for a built-in provider therefore switches the stage on without a second entry. The same holds for a key set for another purpose: `TAVILY_API_KEY`, which hermes-extract-chain also reads, switches on the Tavily search stage and spends its credits. Leave a stage out with `SEARCH_CHAIN_ORDER` (see *Settings*).
+The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`). A key you already set for a built-in provider therefore switches the stage on without a second entry. The same holds for a key set for another purpose: `TAVILY_API_KEY`, which Sift also reads, switches on the Tavily search stage and spends its credits. Leave a stage out with `SEARCH_CHAIN_ORDER` (see *Settings*).
 
 Restart Hermes (or the gateway).
 
 **With Hermes' installer:**
 
 ```bash
-hermes plugins install Pressimize/hermes-search-chain#search_chain --enable
+hermes plugins install Pressimize/hermes-seek#search_chain --enable
 ```
 
 It clones only the `search_chain` subdirectory, asks for the three keys of `requires_env` (Exa, Parallel, Firecrawl; you can skip them) and enables the plugin. The other keys and addresses go into the `.env` yourself, and the `web:` settings above are still needed. Enabling through Hermes' CLI also syncs Hermes' package environment; the manual route avoids that step.
@@ -213,7 +215,7 @@ No. A simulation on the comparison data showed no measurable gain from merging; 
 DonSeTch has only a command-line program and an MCP server over stdio, no HTTP interface. Exa's keyless endpoint answers as well as Exa with a key, but using it when a keyed quota is used up can be read as working around a limit, which Exa's terms forbid. Hermes' keyless ring as a whole finds fewer expected sites than Brave, and its Firecrawl part was rate-limited on 44 % of the queries. Details: design D21 and [docs/evaluation.md](docs/evaluation.md).
 
 **Does it do page extraction?**
-No. `web.extract_backend` is unaffected; see [hermes-extract-chain](https://github.com/Pressimize/hermes-extract-chain).
+No. `web.extract_backend` is unaffected; see [Sift](https://github.com/Pressimize/hermes-sift).
 
 ## Development
 
