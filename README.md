@@ -1,6 +1,8 @@
 # Seek
 
-**Resilient web search for Hermes Agent.**
+**Search smarter. Never stop seeking.**
+
+Resilient multi-provider web search for Hermes Agent.
 
 A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that makes `web_search` fall back across up to nine search services: **Exa → Parallel → Brave → Nimble → Tavily → You.com → SearXNG → Degoog → Firecrawl**.
 
