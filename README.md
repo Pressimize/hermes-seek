@@ -6,7 +6,7 @@ Resilient multi-provider web search for Hermes Agent.
 
 A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that makes `web_search` fall back across up to nine search services: **Exa → Parallel → Brave → Nimble → Tavily → You.com → SearXNG → Degoog → Firecrawl**.
 
-Hermes uses exactly one search provider. If it fails, for example because the free quota is used up, the model gets an error, or Hermes' keyless rescue serves the call from anonymous free tiers. This plugin registers one provider, `search-chain`, that asks the next service when one fails, returns nothing, or has run out of quota. A service you have no key or address for is skipped, and you can pick and order the services yourself.
+Hermes uses exactly one search provider. If it fails, for example because the free quota is used up, the model gets an error, or Hermes' keyless rescue serves the call from anonymous free tiers. This plugin registers one provider, `seek`, that asks the next service when one fails, returns nothing, or has run out of quota. A service you have no key or address for is skipped, and you can pick and order the services yourself.
 
 It is the search counterpart of [Sift](https://github.com/Pressimize/hermes-sift), which does the same for `web_extract`.
 
@@ -32,7 +32,7 @@ The first stage that returns results ends the chain, and its results go to the m
 - A service without a key or address is skipped.
 - Every service is asked for at most 20 results; a result without an `http(s)` address is dropped.
 - After **HTTP 402** (quota or budget used up) a service is skipped for 24 hours, after **HTTP 429** (rate limit) for one minute. Tavily's **432** and **433** (plan limit, pay-as-you-go limit) pause it for 24 hours like a 402. Then the service is asked again, so nothing has to be reset when a quota renews. Pauses live in memory only; restarting Hermes ends them.
-- If no service returns results, the model gets one error with the reason of every service that was asked or is paused, e.g. `search-chain: Exa: HTTP 402 NO_MORE_CREDITS (paused for another 17 h); Parallel: timeout; Firecrawl: no results`. Services without a key or address are not named there; the log names them. If none is configured, the error is `search-chain: no stage configured`.
+- If no service returns results, the model gets one error with the reason of every service that was asked or is paused, e.g. `seek: Exa: HTTP 402 NO_MORE_CREDITS (paused for another 17 h); Parallel: timeout; Firecrawl: no results`. Services without a key or address are not named there; the log names them. If none is configured, the error is `seek: no stage configured`.
 
 The model gets the same result format as from any Hermes search provider. It is not told which service answered; the log is (see *Check*).
 
@@ -74,18 +74,18 @@ No extra Python packages: the plugin only uses `httpx`, which ships with Hermes.
 
 ## Installation
 
-**Manual (recommended):** copy the directory `search_chain/` as `plugins/search-chain/` into your Hermes home.
+**Manual (recommended):** copy the directory `seek/` as `plugins/seek/` into your Hermes home.
 
 | Setup | Target directory |
 |---|---|
-| Linux / macOS | `$HERMES_HOME/plugins/search-chain/`; the Hermes home is usually `~/.hermes` |
-| Official Docker image | `/opt/data/plugins/search-chain/` (`/opt/data` is the mounted Hermes home) |
-| Hermes Desktop (Windows), per profile | `%LOCALAPPDATA%\hermes\profiles\<profile>\plugins\search-chain\` |
+| Linux / macOS | `$HERMES_HOME/plugins/seek/`; the Hermes home is usually `~/.hermes` |
+| Official Docker image | `/opt/data/plugins/seek/` (`/opt/data` is the mounted Hermes home) |
+| Hermes Desktop (Windows), per profile | `%LOCALAPPDATA%\hermes\profiles\<profile>\plugins\seek\` |
 
 ```bash
 git clone https://github.com/Pressimize/hermes-seek.git   # for an update: git -C hermes-seek pull --ff-only
-target="${HERMES_HOME:-$HOME/.hermes}/plugins/search-chain"       # or the directory of your row in the table above
-mkdir -p "$target" && cp -r hermes-seek/search_chain/. "$target/"
+target="${HERMES_HOME:-$HOME/.hermes}/plugins/seek"       # or the directory of your row in the table above
+mkdir -p "$target" && cp -r hermes-seek/seek/. "$target/"
 ```
 
 Then enable it in the profile's `config.yaml` (user plugins are opt-in) and select it:
@@ -93,9 +93,9 @@ Then enable it in the profile's `config.yaml` (user plugins are opt-in) and sele
 ```yaml
 plugins:
   enabled:
-    - search-chain           # add to your existing entries
+    - seek           # add to your existing entries
 web:
-  search_backend: search-chain
+  search_backend: seek
   keyless_rescue: false      # required: otherwise Hermes silently replaces a failed chain
 ```
 
@@ -115,45 +115,45 @@ PARALLEL_API_KEY=...
 #FIRECRAWL_API_KEY=...
 ```
 
-The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`). A key you already set for a built-in provider therefore switches the stage on without a second entry. The same holds for a key set for another purpose: `TAVILY_API_KEY`, which Sift also reads, switches on the Tavily search stage and spends its credits. Leave a stage out with `SEARCH_CHAIN_ORDER` (see *Settings*).
+The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`). A key you already set for a built-in provider therefore switches the stage on without a second entry. The same holds for a key set for another purpose: `TAVILY_API_KEY`, which [Sift](https://github.com/Pressimize/hermes-sift) also reads, switches on the Tavily search stage and spends its credits. Leave a stage out with `SEEK_ORDER` (see *Settings*).
 
 Restart Hermes (or the gateway).
 
 **With Hermes' installer:**
 
 ```bash
-hermes plugins install Pressimize/hermes-seek#search_chain --enable
+hermes plugins install Pressimize/hermes-seek#seek --enable
 ```
 
-It clones only the `search_chain` subdirectory, asks for the three keys of `requires_env` (Exa, Parallel, Firecrawl; you can skip them) and enables the plugin. The other keys and addresses go into the `.env` yourself, and the `web:` settings above are still needed. Enabling through Hermes' CLI also syncs Hermes' package environment; the manual route avoids that step.
+It clones only the `seek` subdirectory, asks for the three keys of `requires_env` (Exa, Parallel, Firecrawl; you can skip them) and enables the plugin. The other keys and addresses go into the `.env` yourself, and the `web:` settings above are still needed. Enabling through Hermes' CLI also syncs Hermes' package environment; the manual route avoids that step.
 
 **Check:** let the agent search for something. `logs/agent.log` in the Hermes home then shows a line per search, with the stages in the order used up to the one that ended the chain:
 
 ```text
-search-chain: exa=ok
-search-chain: exa=http_402 parallel=ok
-search-chain: exa=paused parallel=ok
-search-chain: exa=http_402 parallel=timeout brave=no_key nimble=no_key tavily=no_key youcom=no_key searxng=no_url degoog=no_url firecrawl=ok
+seek: exa=ok
+seek: exa=http_402 parallel=ok
+seek: exa=paused parallel=ok
+seek: exa=http_402 parallel=timeout brave=no_key nimble=no_key tavily=no_key youcom=no_key searxng=no_url degoog=no_url firecrawl=ok
 ```
 
-The last line is long on purpose: it shows why each stage was not asked. When a pause starts, `logs/errors.log` gets a line such as `search-chain: exa paused for 86400 s (HTTP 402 NO_MORE_CREDITS)`.
+The last line is long on purpose: it shows why each stage was not asked. When a pause starts, `logs/errors.log` gets a line such as `seek: exa paused for 86400 s (HTTP 402 NO_MORE_CREDITS)`.
 
 ## Settings
 
 Optional settings in the profile's `.env`:
 
 ```bash
-SEARCH_CHAIN_ORDER=exa,parallel,brave,nimble,tavily,youcom,searxng,degoog,firecrawl   # default
-SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS=600   # default; 0 = Exa's own highlight length (about three times the text)
-SEARCH_CHAIN_PARALLEL_API=v1           # unset (default): the call Hermes makes; v1 = /v1/search in mode advanced
+SEEK_ORDER=exa,parallel,brave,nimble,tavily,youcom,searxng,degoog,firecrawl   # default
+SEEK_EXA_HIGHLIGHT_CHARS=600   # default; 0 = Exa's own highlight length (about three times the text)
+SEEK_PARALLEL_API=v1           # unset (default): the call Hermes makes; v1 = /v1/search in mode advanced
 ```
 
-**Order and choice of stages.** `SEARCH_CHAIN_ORDER` lists the stages to use, comma-separated, in the order they are asked: `exa`, `parallel`, `brave`, `nimble`, `tavily`, `youcom`, `searxng`, `degoog`, `firecrawl`. A stage left out is never asked, even if its key is set. Unknown and repeated names are dropped with one warning in the log; if no valid name is left, the default order is used. Examples:
+**Order and choice of stages.** `SEEK_ORDER` lists the stages to use, comma-separated, in the order they are asked: `exa`, `parallel`, `brave`, `nimble`, `tavily`, `youcom`, `searxng`, `degoog`, `firecrawl`. A stage left out is never asked, even if its key is set. Unknown and repeated names are dropped with one warning in the log; if no valid name is left, the default order is used. Examples:
 
 ```bash
-SEARCH_CHAIN_ORDER=searxng,degoog                         # only your own instances, no paid service (they still query Google, Bing and others)
-SEARCH_CHAIN_ORDER=searxng,exa,parallel,firecrawl         # privacy first: your own instance, then paid services
-SEARCH_CHAIN_ORDER=exa,parallel,brave,nimble,youcom,searxng,degoog,firecrawl   # default without Tavily
+SEEK_ORDER=searxng,degoog                         # only your own instances, no paid service (they still query Google, Bing and others)
+SEEK_ORDER=searxng,exa,parallel,firecrawl         # privacy first: your own instance, then paid services
+SEEK_ORDER=exa,parallel,brave,nimble,youcom,searxng,degoog,firecrawl   # default without Tavily
 ```
 
 If the order names only stages without a key or address, every search fails with `no stage configured`; it does not fall back to the default, so a service you left out never gets a query.
@@ -170,33 +170,33 @@ Setup, judging, all tables, limits and the external code reviews: [docs/validati
 
 ## Update and uninstall
 
-- **Update:** delete `plugins/search-chain/`, copy the new `search_chain/` in its place as in *Installation*, and restart Hermes. Do not run `cp -r search_chain` onto an existing `plugins/search-chain`: that puts the new copy one level deeper, into `plugins/search-chain/search_chain/`, and Hermes keeps loading the old files. After an install with `hermes plugins install`, use `hermes plugins update search-chain`. See [CHANGELOG.md](CHANGELOG.md).
+- **Update:** delete `plugins/seek/`, copy the new `seek/` in its place as in *Installation*, and restart Hermes. Do not run `cp -r seek` onto an existing `plugins/seek`: that puts the new copy one level deeper, into `plugins/seek/seek/`, and Hermes keeps loading the old files. After an install with `hermes plugins install`, use `hermes plugins update seek`. See [CHANGELOG.md](CHANGELOG.md).
 - **Uninstall:**
-  1. Delete `plugins/search-chain/`.
-  2. Remove `search-chain` from `plugins.enabled`.
+  1. Delete `plugins/seek/`.
+  2. Remove `seek` from `plugins.enabled`.
   3. Set `web.search_backend` back to your previous provider.
   4. Restart Hermes.
 
 ## Costs and quotas
 
-The chain reacts to a service's reply; it does not know the remaining quota in advance. Whether a service answers HTTP 402 or charges a stored payment method when the free quota is used up depends on your account settings. For a hard cost cap, keep auto recharge off at Exa and Firecrawl and store no payment method you do not want charged. Brave needs a payment card even for its free credit, and charges $5 per 1,000 searches after it. The prices of all services are in *Requirements*. A key you set for another purpose switches its stage on (see *Installation*); `SEARCH_CHAIN_ORDER` keeps a service out.
+The chain reacts to a service's reply; it does not know the remaining quota in advance. Whether a service answers HTTP 402 or charges a stored payment method when the free quota is used up depends on your account settings. For a hard cost cap, keep auto recharge off at Exa and Firecrawl and store no payment method you do not want charged. Brave needs a payment card even for its free credit, and charges $5 per 1,000 searches after it. The prices of all services are in *Requirements*. A key you set for another purpose switches its stage on (see *Installation*); `SEEK_ORDER` keeps a service out.
 
 Count which service answered:
 
 ```bash
-grep -o "search-chain: .*" logs/agent.log | grep -o "[a-z]*=ok" | sort | uniq -c
+grep -o "seek: .*" logs/agent.log | grep -o "[a-z]*=ok" | sort | uniq -c
 ```
 
 ## Limitations
 
-- **Fixed set of services.** The nine services are built in; the order is a setting (`SEARCH_CHAIN_ORDER`). Another service needs a release.
+- **Fixed set of services.** The nine services are built in; the order is a setting (`SEEK_ORDER`). Another service needs a release.
 - **No results is an error.** If no service finds anything, the model gets an error with `no results` instead of an empty list, because Hermes caches every successful result for `web.cache_ttl_minutes` (default 20).
 - **Different result lengths.** In the comparison runs of 0.1.x, Exa (capped) returned about 4,000 characters per search, Parallel about 8,200, Firecrawl about 3,900 (extra block only); for the stages added in 0.2.0 no such figure is published. A title is cut at 300 characters and a description at 16,000; a description from Firecrawl is cut at 3,000. In the comparison 26 of Firecrawl's 400 descriptions (6.5 %) were longer than that; cutting them changed no verdict.
 - **At most 20 results per search.** Hermes lets the model ask for up to 100; every service is asked for at most 20, because Exa bills each result above 10 extra.
 - **Result texts are third-party content.** Titles and descriptions reach the model as the services send them, apart from the length bounds above. Hermes marks web search results as untrusted data; the plugin does not filter them.
 - **Parallel's quota replies are not documented.** The chain moves on after any failure; only the 24-hour pause depends on the status code being 402.
 - **After a restart** the first search asks every service again, including one with a used-up quota. Without a restart, a renewed or topped-up quota is used only after the 24-hour pause.
-- **Privacy.** Every query is sent to the first stage that has a key or address, and possibly to the following ones. A key set for another purpose switches its stage on. `SEARCH_CHAIN_ORDER` keeps a service out or puts your own instance first.
+- **Privacy.** Every query is sent to the first stage that has a key or address, and possibly to the following ones. A key set for another purpose switches its stage on. `SEEK_ORDER` keeps a service out or puts your own instance first.
 - **Self-hosted search may return weaker hits without an error.** SearXNG and Degoog query Google, Bing and others from your own address. When these block it, the hits get worse but the reply is still valid, and the chain stops there. The plugin does not try to tell good replies from weak ones (design D18). A self-hosted stage late in the chain is asked rarely.
 - **Redirects are not followed** for self-hosted addresses. Enter the address the instance answers on.
 - **An address in an error page.** The full address of a self-hosted instance is masked if its reply echoes it. A part of it, for example only the host, is not.
@@ -208,7 +208,7 @@ grep -o "search-chain: .*" logs/agent.log | grep -o "[a-z]*=ok" | sort | uniq -c
 Exa, Parallel and Firecrawl need vendor SDKs that Hermes installs on first use. Calling the REST APIs directly needs nothing extra, gives exact status codes, and reaches Exa's highlight cap, which the built-in provider does not expose.
 
 **Which Parallel endpoint, and why?**
-The beta endpoint in mode `agentic`, the call Hermes 0.21.6 makes; it was never worse than `/v1/search` in two tests (design D2). If Parallel switches the beta endpoint off, set `SEARCH_CHAIN_PARALLEL_API=v1`.
+The beta endpoint in mode `agentic`, the call Hermes 0.21.6 makes; it was never worse than `/v1/search` in two tests (design D2). If Parallel switches the beta endpoint off, set `SEEK_PARALLEL_API=v1`.
 
 **Does it merge or re-rank results from several services?**
 No. A simulation on the comparison data showed no measurable gain from merging; all results of one search come from one service.
@@ -230,7 +230,7 @@ uv run python scripts/recompute.py         # recomputes the tables of runs 1 and
 
 | Path | Content |
 |---|---|
-| `search_chain/` | The plugin: `provider.py` (Hermes interface, chain, pauses), `engines.py` (REST clients) |
+| `seek/` | The plugin: `provider.py` (Hermes interface, chain, pauses), `engines.py` (REST clients) |
 | `tests/` | Unit tests without network (`httpx.MockTransport`; Hermes is stubbed in `conftest.py`) |
 | `scripts/recompute.py` | Recomputes the tables of runs 1 and 2 (evaluation) and of the end-to-end test (validation) from the CSV files in `data/` |
 | `scripts/live_check.py` | Calls Hermes' real `web_search` path in a profile, without an LLM and with rate limiting; can break keys to force the fallback (`--break` covers all nine stages; for SearXNG and Degoog it replaces the address) |

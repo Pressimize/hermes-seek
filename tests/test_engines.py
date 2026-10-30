@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from search_chain import engines
+from seek import engines
 
 ENGINES = [
     (engines.exa, "Exa"),
@@ -338,7 +338,7 @@ def test_only_a_value_of_8_characters_or_more_is_masked():
 
 
 def test_key_is_masked_in_any_case_and_percent_encoded():
-    """S3: as in extract-chain."""
+    """S3: as in sift."""
     text = "keys EXA-SE/CRET+X and exa-SE%2FCRET%2Bx and exa-se%2fcret%2bx rejected"
     out = call(engines.exa, reply({"error": text}, 401), "q", 5, "exa-SE/CRET+x")
     assert out["error"] == "Exa: HTTP 401 keys [key] and [key] and [key] rejected"

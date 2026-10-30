@@ -14,10 +14,10 @@ from agent.web_search_provider import WebSearchProvider, get_provider_env
 
 from . import engines
 
-NAME = "search-chain"
-HIGHLIGHT_SETTING = "SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS"
-PARALLEL_SETTING = "SEARCH_CHAIN_PARALLEL_API"
-ORDER_SETTING = "SEARCH_CHAIN_ORDER"
+NAME = "seek"
+HIGHLIGHT_SETTING = "SEEK_EXA_HIGHLIGHT_CHARS"
+PARALLEL_SETTING = "SEEK_PARALLEL_API"
+ORDER_SETTING = "SEEK_ORDER"
 PAUSES = {402: 86400, 429: 60, 432: 86400, 433: 86400}  # K5: seconds a stage is skipped after this HTTP status
 log = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def _warn_once(topic: str, message: str, *args: object) -> None:
 
 
 def stage_order(value: str) -> tuple:
-    """K8: the stages named in SEARCH_CHAIN_ORDER, in that order; unknown and repeated names are dropped."""
+    """K8: the stages named in SEEK_ORDER, in that order; unknown and repeated names are dropped."""
     if not value.strip():
         return STAGES
     by_name = {stage[0]: stage for stage in STAGES}
@@ -80,7 +80,7 @@ def stage_order(value: str) -> tuple:
     chosen = tuple(by_name[name] for name in dict.fromkeys(names) if name in by_name)
     if not chosen or len(chosen) != len(names):
         order = chosen or STAGES
-        _warn_once("order", "search-chain: %s has unknown or repeated names; using %s", ORDER_SETTING,
+        _warn_once("order", "seek: %s has unknown or repeated names; using %s", ORDER_SETTING,
                    ",".join(stage[0] for stage in order))  # fmt: skip
     return chosen or STAGES
 
@@ -113,7 +113,7 @@ class SearchChainProvider(WebSearchProvider):
 
     @property
     def display_name(self) -> str:
-        return "Search chain"
+        return "Seek"
 
     def is_available(self) -> bool:
         return any(_setting(setting, holds) for _, _, setting, _, holds in stage_order(_env(ORDER_SETTING)))
@@ -129,15 +129,15 @@ class SearchChainProvider(WebSearchProvider):
         try:
             return self._chain(query, limit, steps)
         except Exception as exc:  # S5: e.g. httpx.Client rejecting a malformed proxy variable
-            log.warning("search-chain: call failed: %s", type(exc).__name__)
-            return _failed(f"search-chain: {type(exc).__name__}")
+            log.warning("seek: call failed: %s", type(exc).__name__)
+            return _failed(f"seek: {type(exc).__name__}")
         finally:
-            log.info("search-chain: %s", " ".join(steps) or "no stage ran")  # L1
+            log.info("seek: %s", " ".join(steps) or "no stage ran")  # L1
 
     def _chain(self, query: str, limit: int, steps: list[str]) -> dict[str, Any]:
         if not isinstance(query, str) or not query.strip():  # S4: Hermes passes an empty query through unchecked
             steps.append("empty_query")
-            return _failed("search-chain: empty query")
+            return _failed("seek: empty query")
         limit = max(1, min(limit, engines.MAX_RESULTS))  # A6
         reasons: list[str] = []
         with httpx.Client(transport=self._transport) as client:
@@ -168,7 +168,7 @@ class SearchChainProvider(WebSearchProvider):
                 if pause := PAUSES.get(result["status"]):
                     self._paused[slot] = (self._clock() + pause, result["error"])
                     detail = result["error"].partition(": ")[2]
-                    log.warning("search-chain: %s paused for %d s (%s)", stage, pause, detail)  # L2
+                    log.warning("seek: %s paused for %d s (%s)", stage, pause, detail)  # L2
         if not reasons:
-            return _failed("search-chain: no stage configured")  # K6
-        return _failed("search-chain: " + "; ".join(reasons))  # K6
+            return _failed("seek: no stage configured")  # K6
+        return _failed("seek: " + "; ".join(reasons))  # K6

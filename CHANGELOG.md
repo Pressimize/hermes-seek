@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 – 2026-10-30
+
+The plugin is now called Seek; the repository moved to `Pressimize/hermes-seek` (the old address redirects). No change to the chain, the services or their order.
+
+**Breaking: rename the plugin in your setup**
+
+- Plugin and provider name `search-chain` → `seek`: install the directory `seek/` as `plugins/seek/`, delete the old `plugins/search-chain/`, and set `plugins.enabled` and `web.search_backend` to `seek`.
+- Settings `SEARCH_CHAIN_ORDER`, `SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS` and `SEARCH_CHAIN_PARALLEL_API` → `SEEK_ORDER`, `SEEK_EXA_HIGHLIGHT_CHARS` and `SEEK_PARALLEL_API`. The old names are no longer read.
+- Log lines and error texts start with `seek:` instead of `search-chain:`; the display name is "Seek".
+
 ## 0.2.0 – 2026-10-19
 
 Six more stages and a setting for the order. Exa, Parallel and Firecrawl are called as before. Why this order: design D17 and [docs/evaluation.md](docs/evaluation.md), *Benchmark v2*.

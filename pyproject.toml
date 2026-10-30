@@ -1,8 +1,8 @@
-# Development tooling only. The plugin itself is the directory search_chain/ and is copied into
+# Development tooling only. The plugin itself is the directory seek/ and is copied into
 # $HERMES_HOME/plugins/ without this file (design I3: no pyproject.toml inside the plugin directory).
 [project]
-name = "hermes-search-chain"
-version = "0.2.0"
+name = "hermes-seek"
+version = "0.3.0"
 description = "Hermes Agent plugin: web_search fallback chain over up to nine search services"
 requires-python = ">=3.11"
 license = "MIT"

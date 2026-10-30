@@ -73,7 +73,7 @@ def all_stages(env):
 @pytest.fixture(autouse=True)
 def fresh_warnings():
     """K8: the order warning is once per process; every test starts without it."""
-    from search_chain import provider
+    from seek import provider
 
     provider._warned.clear()
     yield

@@ -4,7 +4,7 @@ Run with the Python interpreter of a Hermes installation (isolated mode), e.g. H
 
     <hermes python> -I scripts/live_check.py PROFILE [--break exa[,parallel,...]] [--pace 7.5] [QUERY ...]
 
-PROFILE   Hermes profile with the plugin installed, web.search_backend: search-chain and
+PROFILE   Hermes profile with the plugin installed, web.search_backend: seek and
           web.keyless_rescue: false. Its .env provides the keys. "default" is the Hermes home itself.
 --break   replace the key of these stages with an invalid value inside this process, so the stage answers
           with an error (usually HTTP 401) and the next stage has to serve; for searxng and degoog the address
@@ -41,7 +41,7 @@ SETTINGS = {
     "firecrawl": "FIRECRAWL_API_KEY",
 }
 BROKEN = {"SEARXNG_URL": "http://127.0.0.1:9", "DEGOOG_URL": "http://127.0.0.1:9"}  # nothing listens on port 9
-OTHER = ("SEARCH_CHAIN_ORDER", "SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS", "SEARCH_CHAIN_PARALLEL_API")
+OTHER = ("SEEK_ORDER", "SEEK_EXA_HIGHLIGHT_CHARS", "SEEK_PARALLEL_API")
 
 
 def hermes_env(profile):
@@ -65,7 +65,7 @@ class Collect(logging.Handler):
         self.lines = []
 
     def emit(self, record):
-        if record.getMessage().startswith("search-chain: "):
+        if record.getMessage().startswith("seek: "):
             self.lines.append(record.getMessage())
 
 
@@ -92,9 +92,9 @@ def main():
     from tools.web_tools import _ensure_web_plugins_loaded, _get_search_backend, _load_web_config, web_search_tool
 
     _ensure_web_plugins_loaded()
-    if _get_search_backend() != "search-chain":
-        sys.exit(f"search backend is {_get_search_backend()!r}, not 'search-chain'")
-    if not get_provider("search-chain"):
+    if _get_search_backend() != "seek":
+        sys.exit(f"search backend is {_get_search_backend()!r}, not 'seek'")
+    if not get_provider("seek"):
         sys.exit("plugin not loaded (plugins.enabled?)")
     if _load_web_config().get("keyless_rescue", True) is not False:
         sys.exit("set web.keyless_rescue: false")

@@ -73,12 +73,12 @@ History: this test ran on 2026-10-10 with the pre-release code of 0.1.0 (three-s
   | Setup | Search |
   |---|---|
   | Exa capped | this plugin, Exa with highlights capped at 600 characters |
-  | Exa uncapped | this plugin, `SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS=0` |
+  | Exa uncapped | this plugin, `SEEK_EXA_HIGHLIGHT_CHARS=0` |
   | Parallel `/v1/search` | this plugin without an Exa key, Parallel stage on `/v1/search` in mode `advanced` |
   | Parallel beta, built-in | Hermes' built-in Parallel provider: beta endpoint, mode `agentic` |
 
   When the test ran, the plugin's Parallel stage still called `/v1/search`. Because the beta call did at least as well, 0.1.0 shipped with it as the default (design D2); that default was then checked live with two questions (`exa=no_key parallel=ok`, both correct).
-- **Model:** GLM 5.3, a general-purpose language model, served through Mistral's API, with reasoning effort `high`; toolsets `web` and `file`; at most 12 steps; memory off. Pages are read through [hermes-extract-chain](https://github.com/Pressimize/hermes-extract-chain) in all setups.
+- **Model:** GLM 5.3, a general-purpose language model, served through Mistral's API, with reasoning effort `high`; toolsets `web` and `file`; at most 12 steps; memory off. Pages are read through [hermes-sift](https://github.com/Pressimize/hermes-sift) in all setups.
 - **Questions:** 36 in German with a known solution ([questions.csv](../data/end-to-end/questions.csv), with English translations): 10 facts, 10 error messages, 16 "latest released version of X", the version fetched from GitHub right before the run. The instruction asked the model to research on the web, not to answer from memory, to answer in at most three sentences and to name its source. It set no limit on searches.
 - **Procedure:** one round per question with all four setups at the same time, rounds at least 120 s apart, one run per cell, 144 runs. After each round the runner counted the requests per provider from the logs.
 - **Judging:** two judges scored all 144 answers independently against the solution, in shuffled order and without knowing the setup. They agreed on every answer. The 40 answers to error messages were also read by the test's author. A machine check (pattern for facts, version number for version questions) ran alongside and differs from the judges in one cell, noted below.

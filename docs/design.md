@@ -1,4 +1,4 @@
-# Design: `search-chain`, a fallback chain for Hermes' `web_search`
+# Design: `seek`, a fallback chain for Hermes' `web_search`
 
 Requirements carry IDs (`S`, `K`, `A`, `I`, `L`, `T`, decisions `D`). Tests and reviews refer to them.
 
@@ -37,18 +37,18 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
 ## 4. Interface to Hermes
 
 - **S1** The plugin directory contains `plugin.yaml` and `__init__.py`.
-  - `plugin.yaml` declares `name: search-chain`, `kind: backend`, `requires_hermes: ">=0.21"`, `provides_web_providers: [search-chain]` and `requires_env` with `EXA_API_KEY`, `PARALLEL_API_KEY` and `FIRECRAWL_API_KEY` (each `secret: true`). `optional_env` lists the keys of Brave, Nimble, Tavily and You.com and the addresses of SearXNG and Degoog (each `secret: true`, since an address may hold credentials), then `SEARCH_CHAIN_ORDER` (K8) and the settings of A1 and A2.
+  - `plugin.yaml` declares `name: seek`, `kind: backend`, `requires_hermes: ">=0.21"`, `provides_web_providers: [seek]` and `requires_env` with `EXA_API_KEY`, `PARALLEL_API_KEY` and `FIRECRAWL_API_KEY` (each `secret: true`). `optional_env` lists the keys of Brave, Nimble, Tavily and You.com and the addresses of SearXNG and Degoog (each `secret: true`, since an address may hold credentials), then `SEEK_ORDER` (K8) and the settings of A1 and A2.
   - Hermes 0.21.6 asks for every unset `requires_env` entry when the plugin is installed with its CLI; the answer can be skipped. It reads `optional_env` only for messaging plugins, so for this plugin those entries only document the settings, which work from the profile's `.env` either way. Keeping the six new stages there spares six more questions at install time.
   - `register(ctx)` calls `ctx.register_web_search_provider(...)` once.
-- **S2** The provider subclasses `agent.web_search_provider.WebSearchProvider`. Its `name` is `search-chain`; `supports_search()` returns True and `supports_extract()` False. `is_available()` is true iff at least one stage of the order (K8) has its key or address, and checks without network access.
+- **S2** The provider subclasses `agent.web_search_provider.WebSearchProvider`. Its `name` is `seek`; `supports_search()` returns True and `supports_extract()` False. `is_available()` is true iff at least one stage of the order (K8) has its key or address, and checks without network access.
 - **S3** Keys, addresses and the settings (A1, A2, K8) are read only via `agent.web_search_provider.get_provider_env(...)`, so per-profile `.env` files work.
   - If reading a value raises (e.g. `UnscopedSecretError`), it counts as unset.
   - A key of 8 or more characters that a reply echoes never appears in error texts or logs. A shorter value is not masked (A4). The pause table holds only a SHA-256 digest of the key (K5).
 - **S4** `search(query, limit=5)` is synchronous, as in every Hermes search provider. On success it returns `{"success": True, "data": {"web": [...]}}`. Each row has the keys `url`, `title`, `description`, `position`, in this order; `position` counts from 1. All rows of one call come from one stage.
   - A result counts as a row only if its `url` is a string that starts with `http://` or `https://`, in any letter case; anything else is dropped, and the URL is passed on as sent. Hermes refuses other schemes and private addresses when it fetches a URL; the plugin does not repeat that check.
   - `title` and `description` are text; a value of another type becomes empty. A title is cut at 300 characters and a description at 16,000, from Firecrawl at 3,000, without a marker (D12).
-  - A query that is not text, or is empty or only whitespace, fails at once with `search-chain: empty query`; no stage is asked. Hermes passes such a query on unchecked.
-- **S5** `search` never raises. A failure is `{"success": False, "error": "<text>"}`. An unexpected exception fails the call with `search-chain: <exception class>`.
+  - A query that is not text, or is empty or only whitespace, fails at once with `seek: empty query`; no stage is asked. Hermes passes such a query on unchecked.
+- **S5** `search` never raises. A failure is `{"success": False, "error": "<text>"}`. An unexpected exception fails the call with `seek: <exception class>`.
 - **S6** Interrupts, as in Hermes' built-in providers: the plugin checks `tools.interrupt.is_interrupted()` before each stage. If it is set, the chain stops without a further request, the call returns the failure `Interrupted`, and the log line shows `<stage>=interrupted`. A request in flight is not cancelled; its timeout (A0) still applies. Hermes checks the flag itself before it calls the provider, so the check matters between stages. Outside Hermes (tests) the module is not importable; then interrupts are not checked.
 
 ## 5. Chain (per call)
@@ -71,12 +71,12 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
   - After the pause, the stage is asked again on the next call. Nothing needs to be reset when a quota renews.
   - The reason of a paused stage repeats the reply that caused the pause and the remaining time, e.g. `Exa: HTTP 402 NO_MORE_CREDITS (paused for another 17 h)`; below one hour it is given in minutes, rounded up, from one hour on as the nearest hour.
   - Hermes may run several searches at once on one provider object. The pause table is a plain dict without a lock: calls already in flight when the first quota reply arrives each get their own reply and set the same pause again.
-- **K6** When no stage returned rows, the call fails, and the error names the reason of every stage that was asked or is paused, e.g. `search-chain: Exa: HTTP 402 NO_MORE_CREDITS; Parallel: timeout; Firecrawl: no results`. A valid reply without rows has the reason `no results`. Stages without a key or address are not named (D19); the log line shows them. If no stage of the order has a key or address, the error is `search-chain: no stage configured`. This is a failure and not an empty success, because Hermes caches every success for `web.cache_ttl_minutes`; an empty list that only came about because a better stage was paused would otherwise be repeated for that time.
+- **K6** When no stage returned rows, the call fails, and the error names the reason of every stage that was asked or is paused, e.g. `seek: Exa: HTTP 402 NO_MORE_CREDITS; Parallel: timeout; Firecrawl: no results`. A valid reply without rows has the reason `no results`. Stages without a key or address are not named (D19); the log line shows them. If no stage of the order has a key or address, the error is `seek: no stage configured`. This is a failure and not an empty success, because Hermes caches every success for `web.cache_ttl_minutes`; an empty list that only came about because a better stage was paused would otherwise be repeated for that time.
 - **K7** Each stage is asked at most once per call. No retries.
-- **K8** Order setting `SEARCH_CHAIN_ORDER`, read on every call (D15), as `EXTRACT_CHAIN_ORDER` in hermes-extract-chain:
+- **K8** Order setting `SEEK_ORDER`, read on every call (D15), as `SIFT_ORDER` in hermes-sift:
   - Comma-separated stage names (K1); entries are trimmed and lowercased; empty entries are dropped silently.
   - Only the stages named are asked, in that order. A stage left out is never asked, even with a key, and is not named in the log line or the error.
-  - Unknown and repeated names are dropped. A value with unknown or repeated names gives one WARNING per process (not per profile) that names the order used, e.g. `search-chain: SEARCH_CHAIN_ORDER has unknown or repeated names; using exa,parallel`.
+  - Unknown and repeated names are dropped. A value with unknown or repeated names gives one WARNING per process (not per profile) that names the order used, e.g. `seek: SEEK_ORDER has unknown or repeated names; using exa,parallel`.
   - Unset or blank: the default order. If no valid name is left (e.g. `bing` or `,`): the default order, with the warning. A valid order whose stages have no key or address does not fall back to the default, so a stage the user left out is never asked.
 
 ## 6. Provider calls (direct REST)
@@ -84,11 +84,11 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
 - **A0** Every request has a timeout (httpx): Exa 10 s, Parallel 15 s, Brave 10 s, Nimble 15 s, Tavily 15 s, You.com 10 s, SearXNG 15 s, Degoog 10 s, Firecrawl 15 s. For the stages added in 0.2.0, the slowest of 177 searches in the benchmark of 2026-10-18/19 took 1.5 s (Brave), 8.7 s (Nimble), 5.5 s (Tavily), 1.2 s (You.com), 6.0 s (SearXNG) and 2.1 s (Degoog). Slowest searches measured: Exa 6.4 s (the capped call inside the plugin in the end-to-end test; the uncapped call through Hermes was as slow in both comparison runs), Parallel's beta call 6.4 s (run 1, through Hermes), Firecrawl 7.7 s (run 2, through Hermes). httpx bounds each phase of a request (connect, write, read, pool), not the total: a request that is slow in several phases takes longer than its timeout, and a reply that arrives in a trickle is not bounded at all. Hermes 0.21.6 ends a tool call after 420 s by default (D13).
 - **A1** Exa:
   - `POST https://api.exa.ai/search`, header `x-api-key`; body `{"query", "numResults": <limit, at most 20>, "contents": {"highlights": {"maxCharacters": <n>}}}`.
-  - `<n>` comes from the setting `SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS` in the profile's `.env`. A value of one to six decimal digits is used as the number; `0`, also written with several zeros, requests Exa's default highlights (`"highlights": true`). Unset or anything else (`-5`, `5.5`, `abc`, a longer number) means 600.
+  - `<n>` comes from the setting `SEEK_EXA_HIGHLIGHT_CHARS` in the profile's `.env`. A value of one to six decimal digits is used as the number; `0`, also written with several zeros, requests Exa's default highlights (`"highlights": true`). Unset or anything else (`-5`, `5.5`, `abc`, a longer number) means 600.
   - Rows from `results[]`: `url`, `title`, and the `highlights` joined with a space as `description`.
 - **A2** Parallel:
   - Default, the call of Hermes 0.21.6 (D2): `POST https://api.parallel.ai/v1beta/search`, headers `x-api-key` and `parallel-beta: search-extract-2025-10-10`; body `{"search_queries": [<query>], "objective": <query>, "mode": "agentic", "max_results": <limit, at most 20>}`.
-  - With the setting `SEARCH_CHAIN_PARALLEL_API=v1` in the profile's `.env` (case-insensitive; anything else means the default): `POST https://api.parallel.ai/v1/search`, header `x-api-key`; body `{"objective": <query>, "search_queries": [<query>], "mode": "advanced", "advanced_settings": {"max_results": <limit, at most 20>}}`.
+  - With the setting `SEEK_PARALLEL_API=v1` in the profile's `.env` (case-insensitive; anything else means the default): `POST https://api.parallel.ai/v1/search`, header `x-api-key`; body `{"objective": <query>, "search_queries": [<query>], "mode": "advanced", "advanced_settings": {"max_results": <limit, at most 20>}}`.
   - Rows from `results[]`: `url`, `title`, and the `excerpts` joined with a space as `description`.
   - The cap of 20 holds for every stage (A6).
 - **A3** Firecrawl:
@@ -99,7 +99,7 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
   - A non-2xx status becomes `<Provider>: HTTP <status> <detail>`. The detail is the first of these that is present in the JSON body: `tag` (Exa, e.g. `NO_MORE_CREDITS`), `error`, `message`, `detail`. A dict value contributes its `message`, else its `detail`, else its `error` (Brave `{"error": {"detail": ...}}`, Tavily `{"detail": {"error": ...}}`); a list contributes its first element, or that element's `msg` (Tavily's validation errors). Otherwise the response text. A body that cannot be parsed counts as no JSON; the status still decides about a pause (K5).
   - A transport error becomes `<Provider>: timeout` or `<Provider>: <exception class>`, never the text of the exception (it may hold an address, A13); a 2xx reply that is not the expected JSON becomes `<Provider>: malformed reply`. A 2xx reply without a result list (`results`, Brave's `web` or `web.results`, You.com's `results.web`, Firecrawl's `data.web`) is a valid reply without hits (`no results`); at You.com, `results` itself must be an object (A10). A request that httpx cannot build, such as one with a key or query it cannot encode, sends nothing and also becomes `<Provider>: <exception class>` (e.g. `UnicodeEncodeError`), not `malformed reply`. A reply that httpx cannot decode, such as a broken compressed body, is a transport error whatever its status.
   - Error texts are one line: line breaks and other control characters become spaces, and runs of spaces become one space, so a reply cannot add lines to the log. Only the first 2,000 characters of a reply are looked at, and the text is cut to 200 characters after the provider name.
-  - A key echoed in an error text is replaced by `[key]` if it has 8 or more characters (S3), as sent or percent-encoded and in any case, as in extract-chain.
+  - A key echoed in an error text is replaced by `[key]` if it has 8 or more characters (S3), as sent or percent-encoded and in any case, as in sift.
   - Each outcome has a short code for the log (L1).
 - **A7** Brave: `GET https://api.search.brave.com/res/v1/web/search`, headers `X-Subscription-Token` and `Accept: application/json`, parameters `q` and `count` = limit, as Hermes' built-in `brave_free` calls it. Rows from `web.results[]`: `url`, `title`, `description`. Brave marks query words with `<strong>`; the tags `<strong>` and `</strong>`, in any letter case, are removed from title and description before they are cut (S4). Other markup and HTML entities stay. A reply without `web` has no hits; a `web` that is not an object is malformed.
 - **A8** Nimble: `POST https://sdk.nimbleway.com/v2/search`, `Authorization: Bearer <key>`; body `{"query", "search_depth": "lite", "focus": "general", "full_content": false, "max_results": <limit>}`. Rows from `results[]`: `url`, `title`, `description`.
@@ -118,27 +118,27 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
 
 ## 7. Installation and configuration
 
-- **I1** Install the directory `search_chain/` as the plugin `search-chain`, either:
-  - by copying it to `$HERMES_HOME/plugins/search-chain/` and adding `search-chain` to `plugins.enabled`, or
-  - with `hermes plugins install <owner>/hermes-search-chain#search_chain --enable`.
+- **I1** Install the directory `seek/` as the plugin `seek`, either:
+  - by copying it to `$HERMES_HOME/plugins/seek/` and adding `seek` to `plugins.enabled`, or
+  - with `hermes plugins install <owner>/hermes-seek#seek --enable`.
 
   The keys go into the profile's `.env`.
 - **I2** Configuration:
-  - `web.search_backend: search-chain`.
+  - `web.search_backend: seek`.
   - `web.keyless_rescue: false`. Otherwise, when all stages fail, Hermes serves the call from anonymous free tiers without saying so in the log line of this plugin.
-  - A key or address in the environment switches its stage on (K2). The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`), else the vendor's (`YDC_API_KEY`) or a plain name (`NIMBLE_API_KEY`, `DEGOOG_URL`). A key that is there for another purpose, e.g. `TAVILY_API_KEY` for hermes-extract-chain, also switches on the search stage; `SEARCH_CHAIN_ORDER` leaves it out.
+  - A key or address in the environment switches its stage on (K2). The names are those of Hermes' built-in providers where Hermes has one (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`), else the vendor's (`YDC_API_KEY`) or a plain name (`NIMBLE_API_KEY`, `DEGOOG_URL`). A key that is there for another purpose, e.g. `TAVILY_API_KEY` for hermes-sift, also switches on the search stage; `SEEK_ORDER` leaves it out.
 - **I3** The plugin directory contains no `pyproject.toml` and no dependencies. It is therefore not a member of Hermes' package manager and needs no environment changes.
 - **I4** Egress: the host must reach the services it has keys for (HTTPS): `api.exa.ai`, `api.parallel.ai`, `api.search.brave.com`, `sdk.nimbleway.com`, `api.tavily.com`, `ydc-index.io`, `api.firecrawl.dev`, and the addresses of SearXNG and Degoog, directly or through the configured proxy. With `HTTP(S)_PROXY` set, a self-hosted address usually belongs in `NO_PROXY`; a proxy that refuses it shows as `HTTP 403`, the same status SearXNG sends without the JSON format.
 
 ## 8. Logging
 
-- **L1** Logger `logging.getLogger(__name__)`. For each call, one INFO line: `search-chain: <stage>=<outcome> ...`, the stages in the order of K8.
+- **L1** Logger `logging.getLogger(__name__)`. For each call, one INFO line: `seek: <stage>=<outcome> ...`, the stages in the order of K8.
   - Outcomes: `ok`, `empty`, `no_key`, `no_url`, `bad_url` (A13), `paused`, `interrupted`, `http_<status>`, `timeout`, `malformed`, `rejected` (A3), or an exception class name.
   - Each stage up to the one that ended the chain is listed, also those without a key or address: the line shows why a stage was not asked. No query text, no keys, no addresses.
   - The WARNING of K8 comes at most once per process.
-  - If the call fails before the first stage (S5), the line is `search-chain: no stage ran`, after a WARNING `search-chain: call failed: <exception class>`.
-  - A call with an empty query (S4) has the line `search-chain: empty_query` and no WARNING.
-- **L2** When a pause starts, one WARNING line: `search-chain: <stage> paused for <seconds> s (HTTP <status> <detail>)`.
+  - If the call fails before the first stage (S5), the line is `seek: no stage ran`, after a WARNING `seek: call failed: <exception class>`.
+  - A call with an empty query (S4) has the line `seek: empty_query` and no WARNING.
+- **L2** When a pause starts, one WARNING line: `seek: <stage> paused for <seconds> s (HTTP <status> <detail>)`.
 - Hermes writes INFO to `logs/agent.log` and WARNING also to `logs/errors.log` in the Hermes home.
 
 ## 9. Tests and acceptance
@@ -149,7 +149,7 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
   - the same with the keys of the first stages replaced by invalid ones in the process, one stage more each time, so that each stage serves once (the run of 0.2.0 broke Exa and Parallel together; Parallel served in the run of 0.1.x, and its call did not change in 0.2.0); for SearXNG and Degoog the address is replaced by one where nothing listens;
   - the status each service gives for an invalid key is recorded;
   - at most 8 requests/min per provider;
-  - the script refuses to run unless the profile selects `search-chain` and has `web.keyless_rescue: false`.
+  - the script refuses to run unless the profile selects `seek` and has `web.keyless_rescue: false`.
   - A used-up quota (HTTP 402) is not forced in the live check; it is observed in the log during use.
 - **T3** A review checks the result against this document.
 - **T4** `ruff check` and `ruff format --check` are clean; CI (GitHub Actions: ruff and pytest on Python 3.11 and 3.14; pytest also runs `scripts/recompute.py`) is green.
@@ -159,11 +159,11 @@ The next stage is asked when a stage fails, returns no hits, has no key or addre
 
 The user-facing list is in the [README](../README.md#limitations). The limits that are part of the design:
 
-- Every query is sent to the first stage that has a key or address, and possibly to the following ones (privacy). `SEARCH_CHAIN_ORDER` keeps a service out.
+- Every query is sent to the first stage that has a key or address, and possibly to the following ones (privacy). `SEEK_ORDER` keeps a service out.
 - A self-hosted metasearch queries Google, Bing and others from its own address. When they block it, it may return weaker hits without an error, and the chain stops there (D18). Late in the chain it is asked rarely.
 - Results are passed on as the providers send them, apart from the bounds of S4. Hermes marks web search results as untrusted data; the plugin does not filter them.
 - Hermes caches successful results for `web.cache_ttl_minutes` (default 20); this is why a search that finds nothing is a failure (K6).
-- Parallel reserves the beta endpoint for existing integrations and names no end date. If it is switched off, the Parallel stage fails with an HTTP error on every search and the next stage with a key or address serves; the log line shows it (`parallel=http_...`), and `SEARCH_CHAIN_PARALLEL_API=v1` moves the stage to the GA endpoint.
+- Parallel reserves the beta endpoint for existing integrations and names no end date. If it is switched off, the Parallel stage fails with an HTTP error on every search and the next stage with a key or address serves; the log line shows it (`parallel=http_...`), and `SEEK_PARALLEL_API=v1` moves the stage to the GA endpoint.
 
 ## 11. Decisions
 
@@ -191,5 +191,6 @@ Every decision names its reason; where the reason is a measurement, the numbers 
 | D17 | Default order Exa, Parallel, Brave, Nimble, Tavily, You.com, SearXNG, Degoog, Firecrawl | Benchmark of 2026-10-18/19, 177 queries without an LLM, scored by two independent judges on whether the answer is in a result snippet (evaluation.md, *Benchmark v2*). Exa stays first (151), Parallel second (137). From the third stage on, the chain is asked only when Exa and Parallel both fail, which did not happen once in the benchmark; between Brave (140), Nimble (135), Tavily (143) and SearXNG (131 and 131 in two runs of a re-measurement with more spacing) the answer rate differs by no significant amount, so reliability and cost decide. Keyed services come before self-hosted ones because they report a used-up quota or a wrong key as an HTTP error, so the chain moves on; a self-hosted metasearch whose upstream engines block it returns weaker hits without an error (D18) and is asked rarely late in the chain, which also keeps the risk of captchas for its address small. SearXNG before Degoog (significantly better answer rate, 131 against 124 and 120 in the re-measurement). Firecrawl last: free credits shared with page extraction. Tavily and Brave before You.com, which is significantly below Brave (121). The earlier comparison (D0, 75 technical queries through Hermes' built-in calls) had Brave at 50 to 54 against Firecrawl at 65; on the broader benchmark the two are even (140 and 138). For technical questions Firecrawl may still deserve third place, right after Parallel; moving it there is a setting (K8). |
 | D18 | No quality check of replies from self-hosted stages | Measured on three runs of 177 queries: SearXNG with five or more unresponsive engines still had the answer in a snippet in 57 to 69 % of queries, against 72 to 74 % overall; with only three unresponsive engines it had 96 % in one run, so the count does not even rank the replies. Degoog's per-engine status separates good from weak replies neither by failed nor by answering engines. A rule would drop more good replies than weak ones. As for every stage, a reply without hits moves on. |
 | D19 | The error text names only stages that were asked or are paused (K6) | With nine stages, a user with three keys would otherwise get up to six `no API key` reasons in every error the model reads. The log line still lists every stage of the order (L1), so a missing key stays visible where it is looked for. |
-| D20 | Stages switched on by their key or address, picked and ordered by `SEARCH_CHAIN_ORDER`; variable names as in Hermes | The same mechanism as `EXTRACT_CHAIN_ORDER` in hermes-extract-chain, so both plugins are configured alike. Hermes' own names (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`) mean a key set up for Hermes' built-in provider works here too; the price is that a key set for another purpose also switches on its stage, which the order setting undoes. A valid order with no usable stage does not fall back to the default, because that would send queries to services the user left out. |
+| D20 | Stages switched on by their key or address, picked and ordered by `SEEK_ORDER`; variable names as in Hermes | The same mechanism as `SIFT_ORDER` in hermes-sift, so both plugins are configured alike. Hermes' own names (`BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`) mean a key set up for Hermes' built-in provider works here too; the price is that a key set for another purpose also switches on its stage, which the order setting undoes. A valid order with no usable stage does not fall back to the default, because that would send queries to services the user left out. |
 | D21 | Not adopted in 0.2.0 | **DonSeTch** (self-hosted metasearch): only a command-line program and an MCP server over stdio, no HTTP interface, so the plugin would have to start a local program; too many moving parts for one stage. **Exa's keyless endpoint** as a stage: its answer rate equals Exa's with a key (150 against 151), but using it in place of a used-up keyed quota can be read as working around a technical limit, which Exa's terms forbid. **Hermes' keyless rescue ring** as a whole: about 92 hits on the expected site against 105 for Brave, and Firecrawl without a key was rate-limited on 44 % of queries. **A Degoog API key**: off by default in Degoog; can be added on request. **YaCy**: answer in a snippet for 5 of 177 queries. **Following redirects** for self-hosted addresses: the address can be entered as the instance answers. |
+| D22 | Name Seek (0.3.0): plugin, provider and settings prefix `seek`/`SEEK_`, no aliases for the old names | A short name for the plugin and its repository; the old names stay readable in the changelog. Aliases would keep two names alive in code and docs for a plugin with very few installations |

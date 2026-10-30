@@ -1,13 +1,13 @@
-name: search-chain
-version: 0.2.0
+name: seek
+version: 0.3.0
 description: "web_search fallback chain over up to nine search services; moves on when a stage fails or its quota is used up"
 author: "Pressimize and Claude (Anthropic)"
 license: MIT
-homepage: "https://github.com/Pressimize/hermes-search-chain"
+homepage: "https://github.com/Pressimize/hermes-seek"
 kind: backend
 requires_hermes: ">=0.21"
 provides_web_providers:
-  - search-chain
+  - seek
 requires_env:
   - name: EXA_API_KEY
     description: "Exa API key (stage 1 by default, skipped if unset)"
@@ -37,9 +37,9 @@ optional_env:
   - name: DEGOOG_URL
     description: "Address of your Degoog instance (stage 8 by default, skipped if unset)"
     secret: true
-  - name: SEARCH_CHAIN_ORDER
+  - name: SEEK_ORDER
     description: "Stages to use, in order, comma-separated (default exa,parallel,brave,nimble,tavily,youcom,searxng,degoog,firecrawl)"
-  - name: SEARCH_CHAIN_EXA_HIGHLIGHT_CHARS
+  - name: SEEK_EXA_HIGHLIGHT_CHARS
     description: "Characters of Exa highlights per result (default 600; 0 uses Exa's default)"
-  - name: SEARCH_CHAIN_PARALLEL_API
+  - name: SEEK_PARALLEL_API
     description: "Set to v1 to call Parallel's GA endpoint instead of the beta endpoint"
